@@ -1,0 +1,55 @@
+name: mbed-build-develop
+
+on:
+  push:
+    branches: 
+      - develop
+      - develop-**
+  pull_request:
+    branches: 
+      - develop
+    
+jobs: 
+  build:
+    container:
+      image: ghcr.io/armmbed/mbed-os-env:mbed-os-5.15-latest
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        target: [NUCLEO_F446RE]
+        profile: [develop]
+        jobs:
+
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v3
+        
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v1
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Configure Git
+        env:
+          TOKEN: ${{ steps.generate_token.outputs.token }}
+        run: 
+          git config --global url.https://x-access-token:${TOKEN}@github.com/Akashi-Robotics/.insteadOf https://github.com/Akashi-Robotics/
+
+      -
+        name: build
+        
+        run: |
+          set -e
+          mbed deploy
+          mbed compile -t GCC_ARM -m ${{ matrix.target }} --profile mbed-profiles/${{ matrix.profile }}.json
+      -
+        name: upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            BUILD/${{ matrix.target }}/GCC_ARM-DEVELOP/${{ github.event.repository.name }}.bin
